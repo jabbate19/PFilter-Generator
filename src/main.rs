@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::{stdin, stdout, Write};
+use std::process::Command;
 
 #[derive(Debug)]
 struct Permissions {
@@ -52,50 +53,21 @@ fn main() {
                 String::from("445"),
             ]),
         ),
-        (
-            String::from("DNS"),
-            Vec::from([
-                String::from("53"),
-            ]),
-        ),
+        (String::from("DNS"), Vec::from([String::from("53")])),
         (
             String::from("HTTP"),
-            Vec::from([
-                String::from("80"),
-                String::from("443"),
-            ]),
+            Vec::from([String::from("80"), String::from("443")]),
         ),
         (
             String::from("LDAP"),
-            Vec::from([
-                String::from("389"),
-                String::from("636"),
-            ]),
+            Vec::from([String::from("389"), String::from("636")]),
         ),
-        (
-            String::from("NTP"),
-            Vec::from([
-                String::from("123"),
-            ]),
-        ),
-        (
-            String::from("SMTP"),
-            Vec::from([
-                String::from("25"),
-            ]),
-        ),
-        (
-            String::from("SSH"),
-            Vec::from([
-                String::from("22"),
-            ]),
-        ),
+        (String::from("NTP"), Vec::from([String::from("123")])),
+        (String::from("SMTP"), Vec::from([String::from("25")])),
+        (String::from("SSH"), Vec::from([String::from("22")])),
         (
             String::from("WinRM"),
-            Vec::from([
-                String::from("5985"),
-                String::from("5986"),
-            ]),
+            Vec::from([String::from("5985"), String::from("5986")]),
         ),
     ]);
 
@@ -140,7 +112,7 @@ fn main() {
                             for service_port in service_ports {
                                 perm.ports.push(service_port.to_owned());
                             }
-                        },
+                        }
                         None => {
                             println!("Service Not Found!");
                         }
@@ -159,11 +131,11 @@ fn main() {
             break;
         }
     }
-    let mut output = String::from("block all\n\n");
+    let mut output = String::from("block all\n");
     for perm in perms {
-        output.push_str(&format!("#### {}\n", perm.ip));
+        output.push_str(&format!("\n#### {}\n", perm.ip));
         for port in perm.ports {
-            output.push_str(&format!("### Port {}\n", port));
+            output.push_str(&format!("\n### Port {}\n", port));
             output.push_str(&format!(
                 "pass in quick proto {{ udp tcp }} from any to {} port {{ {} }}\n",
                 perm.ip, port
@@ -174,7 +146,7 @@ fn main() {
             ));
         }
         if perm.allow_icmp {
-            output.push_str("### ICMP\n");
+            output.push_str("\n### ICMP\n");
             output.push_str(&format!(
                 "pass in quick proto {{ icmp }} from any to {}\n",
                 perm.ip
@@ -185,6 +157,11 @@ fn main() {
             ));
         }
     }
-    output.push_str("pass out proto {{ tcp udp }} from any to port {{ 22 53 80 123 443 }}\n");
+    output.push_str("\n#### Common Allows\npass out proto {{ tcp udp }} from any to port {{ 22 53 80 123 443 }}\n");
     fs::write("/etc/pf.conf", output).unwrap();
+    Command::new("pfctl")
+        .arg("-f")
+        .arg("/etc/pf.conf")
+        .output()
+        .unwrap();
 }
